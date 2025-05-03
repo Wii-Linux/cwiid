@@ -114,46 +114,18 @@ static PyGetSetDef Wiimote_GetSet[] = {
 	{NULL, NULL, NULL, NULL, NULL}
 };
 
-PyTypeObject Wiimote_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,						/* ob_size */
-	"cwiid.Wiimote",		/* tp_name */
-	sizeof(Wiimote),		/* tp_basicsize */
-	0,						/* tp_itemsize */
-	(destructor)Wiimote_dealloc,	/* tp_dealloc */
-	0,						/* tp_print */
-	0,						/* tp_getattr */
-	0,						/* tp_setattr */
-	0,						/* tp_compare */
-	0,						/* tp_repr */
-	0,						/* tp_as_number */
-	0,						/* tp_as_sequence */
-	0,						/* tp_as_mapping */
-	0,						/* tp_hash */
-	0,						/* tp_call */
-	0,						/* tp_str */
-	0,						/* tp_getattro */
-	0,						/* tp_setattro */
-	0,						/* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,	/* tp_flags */
-	"CWiid Wiimote connection object",	/* tp_doc */
-	0,						/* tp_traverse */
-	0,						/* tp_clear */
-	0,						/* tp_richcompare */
-	0,						/* tp_weaklistoffset */
-	0,						/* tp_iter */
-	0,						/* tp_iternext */
-	Wiimote_Methods,		/* tp_methods */
-	0,						/* tp_members */
-	Wiimote_GetSet,			/* tp_getset */
-	0,						/* tp_base */
-	0,						/* tp_dict */
-	0,						/* tp_descr_get */
-	0,						/* tp_descr_set */
-	0,						/* tp_dictoffset */
-	(initproc)Wiimote_init,	/* tp_init */
-	0,						/* tp_alloc */
-	Wiimote_new,			/* tp_new */
+static PyTypeObject Wiimote_Type = {
+	PyVarObject_HEAD_INIT(NULL, 0)
+	.tp_name = "cwiid.Wiimote",
+	.tp_basicsize = sizeof(Wiimote),
+	.tp_dealloc = (destructor)Wiimote_dealloc,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+	.tp_doc = "CWiid Wiimote connection object",
+	.tp_methods = Wiimote_Methods,
+	.tp_members = NULL,
+	.tp_getset = Wiimote_GetSet,
+	.tp_init = (initproc)Wiimote_init,
+	.tp_new = Wiimote_new,
 };
 
 /* Allocate and deallocate functions */
@@ -179,7 +151,7 @@ static void Wiimote_dealloc(Wiimote *self)
 		cwiid_close(self->wiimote);
 	}
 	Py_XDECREF(self->callback);
-	self->ob_type->tp_free((PyObject *)self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static int Wiimote_init(Wiimote* self, PyObject* args, PyObject *kwds)
@@ -195,8 +167,8 @@ static int Wiimote_init(Wiimote* self, PyObject* args, PyObject *kwds)
 	 * an existing CObject.  Otherwise, create a new one */
 	if (PyTuple_Size(args) == 1) {
 		PyObj = PyTuple_GET_ITEM(args, 0);
-		if (PyCObject_Check(PyObj)) {
-			wiimote = PyCObject_AsVoidPtr(PyObj);
+		if (PyCapsule_CheckExact(PyObj)) {
+			wiimote = PyCapsule_GetPointer(PyObj, NULL);
 			self->close_on_dealloc = 0;
 		}
 	}
@@ -455,7 +427,7 @@ static PyObject *Wiimote_get_state(Wiimote* self, void *closure)
 				}
 
 				if (state.ir_src[i].size != -1) {
-					if (!(PySize = PyInt_FromLong(
+					if (!(PySize = PyLong_FromLong(
 					  (long)state.ir_src[i].size))) {
 						Py_DECREF(PyState);
 						Py_DECREF(PyIrSrc);
@@ -682,7 +654,7 @@ static int Wiimote_set_led(Wiimote *self, PyObject *PyLed, void *closure)
 		return -1;
 	}
 
-	if (((led = PyInt_AsLong(PyLed)) == -1) && PyErr_Occurred()) {
+	if (((led = PyLong_AsLong(PyLed)) == -1) && PyErr_Occurred()) {
 		return -1;
 	}
 
@@ -705,7 +677,7 @@ static int
 		return -1;
 	}
 
-	if (((rumble = PyInt_AsLong(PyRumble)) == -1) && PyErr_Occurred()) {
+	if (((rumble = PyLong_AsLong(PyRumble)) == -1) && PyErr_Occurred()) {
 		return -1;
 	}
 
@@ -728,7 +700,7 @@ static int
 		return -1;
 	}
 
-	if (((rpt_mode = PyInt_AsLong(PyRptMode)) == -1) && PyErr_Occurred()) {
+	if (((rpt_mode = PyLong_AsLong(PyRptMode)) == -1) && PyErr_Occurred()) {
 		return -1;
 	}
 
@@ -788,7 +760,7 @@ static PyObject *Wiimote_read(Wiimote *self, PyObject *args, PyObject *kwds)
 	unsigned char flags;
 	unsigned int offset;
 	Py_ssize_t len;
-	void *buf;
+	char *buf;
 	PyObject *pyRetBuf;
 
 	if (!self->wiimote) {
@@ -801,13 +773,20 @@ static PyObject *Wiimote_read(Wiimote *self, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
 
-	if (!(pyRetBuf = PyBuffer_New(len))) {
+	if (!(pyRetBuf = PyBytes_FromStringAndSize(NULL, len))) {
 		return NULL;
 	}
+	Py_ssize_t actual_len;
+	if (PyBytes_AsStringAndSize(pyRetBuf, &buf, &actual_len) < 0) {
+		return NULL;
+	}
+
+	/*
 	if (PyObject_AsWriteBuffer(pyRetBuf, &buf, &len)) {
 		Py_DECREF(pyRetBuf);
 		return NULL;
 	}
+	*/
 	if (cwiid_read(self->wiimote,flags,offset,len,buf)) {
 		PyErr_SetString(PyExc_RuntimeError, "Error reading wiimote data");
 		Py_DECREF(pyRetBuf);
@@ -943,7 +922,7 @@ PyObject *ConvertMesgArray(int mesg_count, union cwiid_mesg mesg[])
 					}
 
 					if (mesg[i].ir_mesg.src[j].size != -1) {
-						if (!(PySize = PyInt_FromLong(
+						if (!(PySize = PyLong_FromLong(
 						  (long)mesg[i].ir_mesg.src[j].size))) {
 							Py_DECREF(PyIrList);
 							Py_DECREF(PyIrSrc);

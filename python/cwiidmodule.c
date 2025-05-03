@@ -31,8 +31,6 @@
 extern PyTypeObject Wiimote_Type;
 extern PyObject *ConvertMesgArray(int, union cwiid_mesg []);
 
-/* cwiid module initializer */
-PyMODINIT_FUNC initcwiid(void);
 
 /* constants, enumerations */
 #define CWIID_CONST_MACRO(a) {#a, CWIID_##a}
@@ -135,36 +133,42 @@ static PyMethodDef Module_Methods[] =
 	{NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC initcwiid(void)
-{
-	PyObject *Module;
+static struct PyModuleDef cwiidmodule = {
+    PyModuleDef_HEAD_INIT,
+    "cwiid",
+    "CWiid core module",
+    -1,
+    Module_Methods
+};
+
+
+
+PyMODINIT_FUNC PyInit_cwiid(void) {
+	PyObject *module = PyModule_Create(&cwiidmodule);
 	PyObject *CObj;
 	int i;
+	if (!module)
+		return NULL;
 
 	PyEval_InitThreads();
 
 	if (PyType_Ready(&Wiimote_Type) < 0) {
-		return;
-	}
-
-	if (!(Module = Py_InitModule3("cwiid", Module_Methods,
-	  "CWiid Wiimote Interface"))) {
-		return;
+		return NULL;
 	}
 
 	Py_INCREF(&Wiimote_Type);
-	PyModule_AddObject(Module, "Wiimote", (PyObject*)&Wiimote_Type);
+	PyModule_AddObject(module, "Wiimote", (PyObject*)&Wiimote_Type);
 
 	for (i = 0; cwiid_constants[i].name; i++) {
 		/* No way to report errors from here, so just ignore them and hope
 		 * for segfault */
-		PyModule_AddIntConstant(Module, cwiid_constants[i].name,
+		PyModule_AddIntConstant(module, cwiid_constants[i].name,
 		                        cwiid_constants[i].value);
 	}
 
-	if (!(CObj = PyCObject_FromVoidPtr(ConvertMesgArray, NULL))) {
-		return;
+	if (!(CObj = PyCapsule_New(ConvertMesgArray, NULL, NULL))) {
+		return NULL;
 	}
-	PyModule_AddObject(Module, "ConvertMesgArray", CObj);
+	PyModule_AddObject(module, "ConvertMesgArray", CObj);
 }
 

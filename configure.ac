@@ -1,9 +1,9 @@
-AC_INIT(CWiid,0.6.00,donnie.smith@gatech.edu)
-AC_CONFIG_HEADER(common/include/config.h)
+AC_INIT([CWiid],[0.6.00],[donnie.smith@gatech.edu])
+AC_CONFIG_HEADERS([common/include/config.h])
 
 AC_PROG_CC
 AC_PROG_AWK
-AC_PROG_LEX
+AC_PROG_LEX([noyywrap])
 if test "$LEX" != "flex"; then
 	AC_MSG_ERROR([flex not found])
 fi
@@ -39,12 +39,14 @@ if test $REQUIRE_PYTHON; then
 		AC_MSG_ERROR([$PYTHON_NAME not found])
 	fi
 fi
+
 AC_SUBST(PYTHON)
-if test $PYTHON; then
-	PYTHON_VERSION=[`$PYTHON -c 'import sys; print sys.version[:3]'`]
+if test "$PYTHON"; then
+	PYTHON_VERSION=`$PYTHON -c 'import sys; print(str(sys.version_info[[0]]) + "." + str(sys.version_info[[1]]))'`
 	AC_SUBST(PYTHON_VERSION)
-	AC_DEFINE([HAVE_PYTHON],1,[Define to 1 if python support is enabled])
+	AC_DEFINE([HAVE_PYTHON], 1, [Define to 1 if Python support is enabled])
 fi
+
 
 AC_CHECK_LIB([pthread], [pthread_create],,
 	AC_MSG_ERROR([pthread library not found]))
@@ -55,7 +57,6 @@ AC_CHECK_LIB([dl], [dlopen],,
 #AC_CHECK_LIB([rt], [clock_gettime],,
 #	AC_MSG_ERROR([rt lib not found]))
 
-AC_HEADER_STDC
 AC_CHECK_HEADER([stdint.h],,
 	AC_MSG_ERROR([stdint.h not found]))
 AC_CHECK_HEADER([bluetooth/bluetooth.h],,
@@ -69,10 +70,9 @@ AC_CHECK_HEADER([linux/uinput.h],,
 	AC_MSG_ERROR([linux/uinput.h]),
 	[#include <linux/input.h>])
 
-AC_ISC_POSIX
+AC_SEARCH_LIBS([strerror],[cposix])
 
-AC_ARG_WITH(cwiid-config-dir,AC_HELP_STRING([--with-cwiid-config-dir],
-	[CWiid configuration directory, default to $(sysconfdir)/cwiid]))
+AC_ARG_WITH(cwiid-config-dir,AS_HELP_STRING([--with-cwiid-config-dir],[CWiid configuration directory, default to $(sysconfdir)/cwiid]))
 if test -z $with_cwiid_config_dir; then
 	CWIID_CONFIG_DIR='${sysconfdir}/cwiid'
 else
@@ -80,8 +80,7 @@ else
 fi
 AC_SUBST(CWIID_CONFIG_DIR)
 
-AC_ARG_WITH(cwiid-plugins-dir,AC_HELP_STRING([--with-cwiid-plugins-dir],
-	[CWiid plugins directory, default to $(libdir)/cwiid/plugins]))
+AC_ARG_WITH(cwiid-plugins-dir,AS_HELP_STRING([--with-cwiid-plugins-dir],[CWiid plugins directory, default to $(libdir)/cwiid/plugins]))
 if test -n $with_cwiid_plugins_dir; then
 	CWIID_PLUGINS_DIR='${libdir}/cwiid/plugins'
 else
@@ -89,8 +88,7 @@ else
 fi
 AC_SUBST(CWIID_PLUGINS_DIR)
 
-AC_ARG_WITH(ldconfig,AC_HELP_STRING([--disable-ldconfig],
-	[don't execute ldconfig after install]))
+AC_ARG_WITH(ldconfig,AS_HELP_STRING([--disable-ldconfig],[don't execute ldconfig after install]))
 if test "$enable_ldconfig" = "no"; then
 	LDCONFIG="#ldconfig"
 else
@@ -103,24 +101,24 @@ PKG_CHECK_MODULES([GTK], [$pkg_modules])
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LIBS)
 
-AC_OUTPUT(
-	[Makefile]
-	[defs.mak]
-	[common/include/lib.mak]
-	[doc/Makefile]
-	[man/Makefile]
-	[libcwiid/Makefile]
-	[libcwiid/cwiid.pc]
-	[wmdemo/Makefile]
-	[wmgui/Makefile]
-	[wminput/Makefile]
-	[wminput/plugins/Makefile]
-	[wminput/plugins/ir_ptr/Makefile]
-	[wminput/plugins/acc/Makefile]
-	[wminput/plugins/nunchuk_acc/Makefile]
-	[wminput/plugins/led/Makefile]
- 	[wminput/plugins/nunchuk_stick2btn/Makefile]
-	[lswm/Makefile]
-	[python/Makefile]
-	)
+AC_CONFIG_FILES([Makefile
+	defs.mak
+	common/include/lib.mak
+	doc/Makefile
+	man/Makefile
+	libcwiid/Makefile
+	libcwiid/cwiid.pc
+	wmdemo/Makefile
+	wmgui/Makefile
+	wminput/Makefile
+	wminput/plugins/Makefile
+	wminput/plugins/ir_ptr/Makefile
+	wminput/plugins/acc/Makefile
+	wminput/plugins/nunchuk_acc/Makefile
+	wminput/plugins/led/Makefile
+	wminput/plugins/nunchuk_stick2btn/Makefile
+	lswm/Makefile
+	python/Makefile
+	])
+AC_OUTPUT
 
